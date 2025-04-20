@@ -1,50 +1,98 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
-<head>
+<html lang="zh-TW" data-bs-theme="light"> <head>
     <meta charset="UTF-8">
+    <link rel="icon" href="https://avatars.githubusercontent.com/u/70755374" type="image/x-icon" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台鐵票價試算 (含 2025/6/23 調漲後)</title>
+    <title>台鐵票價試算 (含 2025/6/23 調漲後) - BS5</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Simple transition for theme change */
+        body, .card {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+         /* Ensure optgroup labels are visible in dark mode */
+        optgroup {
+            font-weight: bold;
+            font-style: italic;
+             /* Provide background/color that works in both modes or rely on browser default */
+        }
+        select:focus{ /* prevent blue outline glow */
+             box-shadow: none !important;
+        }
+    </style>
 </head>
 <body>
-
-    <h1>台鐵票價試算 (含 2025/6/23 調漲後)</h1>
-    <p>
-        使用下方選單選擇起訖站及車種，計算預估票價。
-        <br>
-        新票價自 <strong>2025年6月23日</strong> 起實施，採「遞遠遞減」費率。
-        <br>
-        注意：本計算已納入基本里程數據與調漲費率，但山/海線特定路徑計算可能簡化，實際票價請以台鐵公告為準。
-    </p>
-
-    <div class="calculator">
-        <label for="startStation">起站：</label>
-        <select id="startStation"></select>
-
-        <label for="endStation">迄站：</label>
-        <select id="endStation"></select>
-
-        <label for="trainClass">車種：</label>
-        <select id="trainClass">
-            <option value="local">區間車 / 復興號</option>
-            <option value="juguang">莒光號</option>
-            <option value="ziqiang">自強號 (含普悠瑪、太魯閣)</option>
-        </select>
-
-        <button onclick="calculateAndDisplayFare()">計算預估票價</button>
-
-        <div id="result" style="display: none;">
-            <h2>試算結果：</h2>
-            <p>計算里程：<span id="calculatedDistance">--</span> 公里</p>
-            <p>原始票價 (預估)：<span id="originalFare">--</span> 元</p>
-            <p>調漲後票價 (預估)：<span id="newFare">--</span> 元</p>
-            <p class="disclaimer">＊票價依官方費率計算，含 10 公里起碼里程規則。</p>
-            <p class="disclaimer">＊實際票價請查詢 <a href="https://www.railway.gov.tw/tra-tip-web/tip/tip00C/tipC21/view?proCode=8ae4cac3756b7b4101757271e5f71703&subCode=8ae4cac395f2c8940195f59fc8e811c6&lang=zh_TW" target="_blank">台鐵官網</a>。</p>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">台鐵票價試算</a>
+            <button class="btn btn-outline-secondary" id="theme-toggler" type="button">
+                <i class="bi bi-moon-stars-fill"></i> </button>
         </div>
-        <div id="error" style="color: red; margin-top: 15px; text-align: center; display: none;"></div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                         <h4 class="mb-0">調漲票價試算</h4>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text text-muted mb-3 text-center">
+                            使用下方選單選擇起訖站及車種，計算預估票價。<br>新票價自 2025年6月23日 起實施，採「遞遠遞減」費率。<br>注意：本計算已納入基本里程數據與調漲費率，但山/海線特定路徑計算可能簡化，實際票價請以台鐵公告為準。 
+                        </p>
+
+                        <div class="mb-3">
+                            <label for="startStation" class="form-label">起站：</label>
+                            <select id="startStation" class="form-select form-select-lg"></select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="endStation" class="form-label">迄站：</label>
+                            <select id="endStation" class="form-select form-select-lg"></select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="trainClass" class="form-label">車種：</label>
+                            <select id="trainClass" class="form-select form-select-lg">
+                                <option value="local">區間車</option>
+                                <option value="juguang">莒光號</option>
+                                <option value="ziqiang">自強號 (含普悠瑪、太魯閣)</option>
+                            </select>
+                        </div>
+
+                        <div class="d-grid">
+                             <button class="btn btn-primary btn-lg" onclick="calculateAndDisplayFare()">計算預估票價</button>
+                        </div>
+
+
+                        <div id="error" class="alert alert-danger mt-3" role="alert" style="display: none;">
+                            </div>
+
+                        <div id="result" class="mt-4 pt-3 border-top" style="display: none;">
+                            <h5 class="mb-3">試算結果：</h5>
+                            <p>計算里程：<strong id="calculatedDistance">--</strong> 公里</p>
+                            <p>原始票價 (預估)：<strong class="text-danger" id="originalFare">--</strong> 元</p>
+                            <p>調漲後票價 (預估)：<strong class="text-danger" id="newFare">--</strong> 元</p>
+                            <p>票價差：
+                                <strong class="text-info" id="fareDifference">--</strong> 元
+                                (<strong class="text-info" id="fareDiffPercentage">--</strong> %)
+                            </p>
+                             <p class="disclaimer text-muted small mt-3">
+                                ＊票價依官方費率計算，含 10 公里起碼里程規則。<br>
+                                ＊山海線特定路徑及跨線路徑計算可能簡化，實際票價請以 <a href="https://www.railway.gov.tw/tra-tip-web/tip/tip00C/tipC21/view?proCode=8ae4cac3756b7b4101757271e5f71703&subCode=8ae4cac395f2c8940195f59fc8e811c6&lang=zh_TW" target="_blank" class="link-warning">台鐵官網</a> 公告為準。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <script src="stations.js"></script> <script src="script.js"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="stations.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
