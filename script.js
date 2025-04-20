@@ -130,137 +130,167 @@ function getStation(name) {
 
 
 // **REVISED Distance Calculation - Less Prone to Recursion**
-function calculatePhysicalDistance(startName, endName) {
+// Cache for memoization
+const distanceCache = new Map();
+
+function calculatePhysicalDistance(startName, endName, depth = 0) {
+    const MAX_DEPTH = 10; // Adjust as needed
+    if (depth > MAX_DEPTH) {
+        return { error: `遞迴深度過高 (${startName} <-> ${endName})` };
+    }
+
+    // Check cache
+    const cacheKey = [startName, endName].sort().join('->');
+    if (distanceCache.has(cacheKey)) {
+        return distanceCache.get(cacheKey);
+    }
+
     const s = getStation(startName);
     const e = getStation(endName);
 
     if (!s || !e) return { error: `無法取得車站資料 (${startName}/${endName})` };
     if (startName === endName) return { distance: 0 };
 
-    // --- Direct Same Line Calculation (Base Case) ---
-    // Check if on the exact same line *and* mileage is comparable
-    if (s.line === e.line && typeof s.mileage === 'number' && typeof e.mileage === 'number') {
-         // Check if it's a branch line (mileage relative to base)
-         if (s.baseStation) { // Both on same branch
-              return { distance: Math.abs(s.mileage - e.mileage) };
-         } else { // Both on same main line segment
-              return { distance: Math.abs(s.mileage - e.mileage) };
-         }
+    // Validate station data
+    if (s.baseStation === startName || e.baseStation === endName) {
+        return { error: `車站資料錯誤：基站循環 (${startName}/${endName})` };
     }
 
-     // --- Branch Line Handling (More Robust) ---
-     let currentS = s;
-     let currentE = e;
-     let distAcc = 0;
+    // --- Direct Same Line Calculation (Base Case) ---
+    if (s.line === e.line && typeof s.mileage === 'number' && typeof e.mileage === 'number') {
+        if (s.baseStation) {
+            return { distance: Math.abs(s.mileage - e.mileage) };
+        } else {
+            return { distance: Math.abs(s.mileage - e.mileage) };
+        }
+    }
 
-     // Calculate path from start branch to its base (if applicable)
-     if (currentS.baseStation) {
-         const baseS = getStation(currentS.baseStation);
-         if (!baseS) return { error: `無法取得 ${startName} 的主線基站 ${currentS.baseStation}` };
-         distAcc += currentS.mileage;
-         currentS = baseS; // Move start point to base station
-     }
-     // Calculate path from end branch to its base (if applicable)
-      if (currentE.baseStation) {
-         const baseE = getStation(currentE.baseStation);
-         if (!baseE) return { error: `無法取得 ${endName} 的主線基站 ${currentE.baseStation}` };
-         distAcc += currentE.mileage;
-         currentE = baseE; // Move end point to base station
-     }
+    // --- Branch Line Handling ---
+    let currentS = s;
+    let currentE = e;
+    let distAcc = 0;
 
-     // If after resolving branches, points are the same, return accumulated distance
-     if (currentS.name === currentE.name) {
-         return { distance: distAcc };
-     }
+    if (currentS.baseStation) {
+        const baseS = getStation(currentS.baseStation);
+        if (!baseS) return { error: `無法取得 ${startName} 的主線基站 ${currentS.baseStation}` };
+        distAcc += currentS.mileage;
+        currentS = baseS;
+    }
+    if (currentE.baseStation) {
+        const baseE = getStation(currentE.baseStation);
+        if (!baseE) return { error: `無法取得 ${endName} 的主線基站 ${currentE.baseStation}` };
+        distAcc += currentE.mileage;
+        currentE = baseE;
+    }
 
-     // --- Now calculate distance between currentS and currentE (which are on main lines) ---
-     // Check if they are now on the same main line
-     if (currentS.line === currentE.line && typeof currentS.mileage === 'number' && typeof currentE.mileage === 'number') {
-         return { distance: distAcc + Math.abs(currentS.mileage - currentE.mileage) };
-     }
+    if (currentS.name === currentE.name) {
+        return { distance: distAcc };
+    }
 
-     // --- Different Main Lines or Complex Paths (Mountain/Coast, East/West) ---
-     // Determine if West or East side
-     const isWestS = currentS.segment && currentS.segment !== 'East' && currentS.segment !== 'Pingxi' && currentS.segment !== 'South-Link';
-     const isWestE = currentE.segment && currentE.segment !== 'East' && currentE.segment !== 'Pingxi' && currentE.segment !== 'South-Link';
-     const isEastS = currentS.segment && (currentS.segment === 'East-North' || currentS.segment === 'Hualien-Taitung' || currentS.segment === 'South-Link' || currentS.segment === 'Pingxi');
-     const isEastE = currentE.segment && (currentE.segment === 'East-North' || currentE.segment === 'Hualien-Taitung' || currentE.segment === 'South-Link' || currentE.segment === 'Pingxi');
+    // --- Same Main Line After Branch Resolution ---
+    if (currentS.line === currentE.line && typeof currentS.mileage === 'number' && typeof currentE.mileage === 'number') {
+        return { distance: distAcc + Math.abs(currentS.mileage - currentE.mileage) };
+    }
 
+    // --- Different Main Lines or Complex Paths ---
+    const isWestS = currentS.segment && currentS.segment !== 'East' && currentS.segment !== 'Pingxi' && currentS.segment !== 'South-Link';
+    const isWestE = currentE.segment && currentE.segment !== 'East' && currentE.segment !== 'Pingxi' && currentE.segment !== 'South-Link';
+    const isEastS = currentS.segment && (currentS.segment === 'East-North' || currentS.segment === 'Hualien-Taitung' || currentS.segment === 'South-Link' || currentS.segment === 'Pingxi');
+    const isEastE = currentE.segment && (currentE.segment === 'East-North' || currentE.segment === 'Hualien-Taitung' || currentE.segment === 'South-Link' || currentE.segment === 'Pingxi');
 
     // Case 1: East <-> West
     if (isWestS !== isWestE || isEastS !== isEastE) {
-         // Simplified: Calculate via Taipei and via South Link (Fangliao), take minimum
-         const distToTaipei_S = calculatePhysicalDistance(currentS.name, TAIPEI).distance ?? Infinity;
-         const distFromTaipei_E = calculatePhysicalDistance(TAIPEI, currentE.name).distance ?? Infinity;
-         const pathViaTaipei = distToTaipei_S + distFromTaipei_E;
+        const taipei = getStation(TAIPEI);
+        const fangliao = getStation(FANG_LIAO);
 
-         // Path Via Fangliao (South Link)
-         const distToFangliao_S = calculatePhysicalDistance(currentS.name, FANG_LIAO).distance ?? Infinity;
-         const distToFangliao_E = calculatePhysicalDistance(currentE.name, FANG_LIAO).distance ?? Infinity;
-         const pathViaFangliao = distToFangliao_S + distToFangliao_E;
+        let pathViaTaipei = Infinity;
+        let pathViaFangliao = Infinity;
 
+        // Optimize for same-line calculations
+        if (currentS.line === taipei.line && typeof currentS.mileage === 'number' && typeof taipei.mileage === 'number') {
+            pathViaTaipei = Math.abs(currentS.mileage - taipei.mileage);
+        } else {
+            pathViaTaipei = calculatePhysicalDistance(currentS.name, TAIPEI, depth + 1).distance ?? Infinity;
+        }
+        if (currentE.line === taipei.line && typeof currentE.mileage === 'number' && typeof taipei.mileage === 'number') {
+            pathViaTaipei += Math.abs(currentE.mileage - taipei.mileage);
+        } else {
+            pathViaTaipei += calculatePhysicalDistance(TAIPEI, currentE.name, depth + 1).distance ?? Infinity;
+        }
 
-         if (pathViaTaipei === Infinity && pathViaFangliao === Infinity) {
-             return { error: `無法計算東西幹線路徑 (${currentS.name} <-> ${currentE.name})`};
-         }
-         // console.log(`East-West Path (${currentS.name}-${currentE.name}): Via TPE=${pathViaTaipei.toFixed(1)}, Via FL=${pathViaFangliao.toFixed(1)}`);
-         return { distance: distAcc + Math.min(pathViaTaipei, pathViaFangliao) };
-     }
+        if (currentS.line === fangliao.line && typeof currentS.mileage === 'number' && typeof fangliao.mileage === 'number') {
+            pathViaFangliao = Math.abs(currentS.mileage - fangliao.mileage);
+        } else {
+            pathViaFangliao = calculatePhysicalDistance(currentS.name, FANG_LIAO, depth + 1).distance ?? Infinity;
+        }
+        if (currentE.line === fangliao.line && typeof currentE.mileage === 'number' && typeof fangliao.mileage === 'number') {
+            pathViaFangliao += Math.abs(currentE.mileage - fangliao.mileage);
+        } else {
+            pathViaFangliao += calculatePhysicalDistance(FANG_LIAO, currentE.name, depth + 1).distance ?? Infinity;
+        }
 
-     // Case 2: Both West - Mountain/Coast Logic
-     if (isWestS && isWestE) {
-          const segS = currentS.segment;
-          const segE = currentE.segment;
-          const isBetweenJunctionsS = segS === 'Mountain' || segS === 'Coast';
-          const isBetweenJunctionsE = segE === 'Mountain' || segE === 'Coast';
+        if (pathViaTaipei === Infinity && pathViaFangliao === Infinity) {
+            return { error: `無法計算東西幹線路徑 (${currentS.name} <-> ${currentE.name})` };
+        }
 
-          if ((segS === 'West-North' && segE === 'West-South') || (segS === 'West-South' && segE === 'West-North') ||
-              (segS === 'West-North' && segE === 'Pingtung') || (segS === 'Pingtung' && segE === 'West-North')) {
-             // Rule 1 (Implicit): North of Zhunan <-> South of Changhua -> Use Mountain Mileage
-             // This assumes base mileage is the Mountain Line mileage
-             return { distance: distAcc + Math.abs(currentS.mileage - currentE.mileage) };
-          } else if (((segS === 'West-North' || segS === 'West-South' || segS === 'Pingtung') && isBetweenJunctionsE) ||
-                     ((segE === 'West-North' || segE === 'West-South' || segE === 'Pingtung') && isBetweenJunctionsS)) {
-             // Rule 2: Trunk <-> Mtn/Coast: Shortest Path
-             const distMtn = Math.abs(currentS.mileage - currentE.mileage); // Assume base mileage is Mtn equivalent
-             // Calculate path via Coast (approximation through junctions)
-             const distToZhunanS = calculatePhysicalDistance(currentS.name, ZHU_NAN).distance ?? Infinity;
-             const distToChanghuaS = calculatePhysicalDistance(currentS.name, CHANG_HUA).distance ?? Infinity;
-             const distToZhunanE = calculatePhysicalDistance(currentE.name, ZHU_NAN).distance ?? Infinity;
-             const distToChanghuaE = calculatePhysicalDistance(currentE.name, CHANG_HUA).distance ?? Infinity;
-             // Approx Coast line length between junctions
-             const coastLen = Math.abs(stationsData[ZHU_NAN].mileage - stationsData[CHANG_HUA].mileageCoast); // Use Changhua's coast equiv mileage
-             const pathViaCoastJct = Math.min(distToZhunanS + coastLen + distToChanghuaE, distToChanghuaS + coastLen + distToZhunanE);
+        const result = { distance: distAcc + Math.min(pathViaTaipei, pathViaFangliao) };
+        distanceCache.set(cacheKey, result);
+        return result;
+    }
 
-             if(isNaN(distMtn) || isNaN(pathViaCoastJct)) return { error: `計算山海線路徑錯誤 (${currentS.name} <-> ${currentE.name})`};
-             return { distance: distAcc + Math.min(distMtn, pathViaCoastJct) };
-          } else if (isBetweenJunctionsS && isBetweenJunctionsE && segS !== segE) {
-             // Rule 3: Mountain <-> Coast (between junctions): Shortest via junctions
-             const distViaZhunan = (calculatePhysicalDistance(currentS.name, ZHU_NAN).distance ?? Infinity) + (calculatePhysicalDistance(ZHU_NAN, currentE.name).distance ?? Infinity);
-             const distViaChanghua = (calculatePhysicalDistance(currentS.name, CHANG_HUA).distance ?? Infinity) + (calculatePhysicalDistance(CHANG_HUA, currentE.name).distance ?? Infinity);
-             if (distViaZhunan === Infinity && distViaChanghua === Infinity) return { error: `計算山海線之間路徑錯誤 (${currentS.name} <-> ${currentE.name})` };
-             return { distance: distAcc + Math.min(distViaZhunan, distViaChanghua) };
-          } else {
-             // Same segment (e.g., Mountain-Mountain, Coast-Coast, North-North)
-              // Use direct mileage diff based on *that specific line's* data if distinct (like coast)
-             if (currentS.line === 'Coast' && currentE.line === 'Coast') {
-                 return { distance: distAcc + Math.abs(currentS.mileage - currentE.mileage) };
-             }
-             // Default to primary mileage (likely Mountain for Mtn stations, West for others)
-             return { distance: distAcc + Math.abs(currentS.mileage - currentE.mileage) };
-          }
-     }
+    // Case 2: Both West - Mountain/Coast Logic
+    if (isWestS && isWestE) {
+        const segS = currentS.segment;
+        const segE = currentE.segment;
+        const isBetweenJunctionsS = segS === 'Mountain' || segS === 'Coast';
+        const isBetweenJunctionsE = segE === 'Mountain' || segE === 'Coast';
+
+        if ((segS === 'West-North' && segE === 'West-South') || (segS === 'West-South' && segE === 'West-North') ||
+            (segS === 'West-North' && segE === 'Pingtung') || (segS === 'Pingtung' && segE === 'West-North')) {
+            return { distance: distAcc + Math.abs(currentS.mileage - currentE.mileage) };
+        } else if (((segS === 'West-North' || segS === 'West-South' || segS === 'Pingtung') && isBetweenJunctionsE) ||
+                   ((segE === 'West-North' || segE === 'West-South' || segE === 'Pingtung') && isBetweenJunctionsS)) {
+            const distMtn = Math.abs(currentS.mileage - currentE.mileage);
+            const distToZhunanS = calculatePhysicalDistance(currentS.name, ZHU_NAN, depth + 1).distance ?? Infinity;
+            const distToChanghuaS = calculatePhysicalDistance(currentS.name, CHANG_HUA, depth + 1).distance ?? Infinity;
+            const distToZhunanE = calculatePhysicalDistance(currentE.name, ZHU_NAN, depth + 1).distance ?? Infinity;
+            const distToChanghuaE = calculatePhysicalDistance(currentE.name, CHANG_HUA, depth + 1).distance ?? Infinity;
+            const coastLen = Math.abs(stationsData[ZHU_NAN].mileage - stationsData[CHANG_HUA].mileageCoast);
+            const pathViaCoastJct = Math.min(distToZhunanS + coastLen + distToChanghuaE, distToChanghuaS + coastLen + distToZhunanE);
+
+            if (isNaN(distMtn) || isNaN(pathViaCoastJct)) {
+                return { error: `計算山海線路徑錯誤 (${currentS.name} <-> ${currentE.name})` };
+            }
+            const result = { distance: distAcc + Math.min(distMtn, pathViaCoastJct) };
+            distanceCache.set(cacheKey, result);
+            return result;
+        } else if (isBetweenJunctionsS && isBetweenJunctionsE && segS !== segE) {
+            const distViaZhunan = (calculatePhysicalDistance(currentS.name, ZHU_NAN, depth + 1).distance ?? Infinity) +
+                                  (calculatePhysicalDistance(ZHU_NAN, currentE.name, depth + 1).distance ?? Infinity);
+            const distViaChanghua = (calculatePhysicalDistance(currentS.name, CHANG_HUA, depth + 1).distance ?? Infinity) +
+                                    (calculatePhysicalDistance(CHANG_HUA, currentE.name, depth + 1).distance ?? Infinity);
+            if (distViaZhunan === Infinity && distViaChanghua === Infinity) {
+                return { error: `計算山海線之間路徑錯誤 (${currentS.name} <-> ${currentE.name})` };
+            }
+            const result = { distance: distAcc + Math.min(distViaZhunan, distViaChanghua) };
+            distanceCache.set(cacheKey, result);
+            return result;
+        } else {
+            if (currentS.line === 'Coast' && currentE.line === 'Coast') {
+                return { distance: distAcc + Math.abs(currentS.mileage - currentE.mileage) };
+            }
+            return { distance: distAcc + Math.abs(currentS.mileage - currentE.mileage) };
+        }
+    }
 
     // Case 3: Both East
     if (isEastS && isEastE) {
-         // Assume direct connection along the East line path
-         // This ignores potential complexities if traveling backward/forward on SouthLink etc.
-         return { distance: distAcc + Math.abs(currentS.mileage - currentE.mileage) };
-     }
+        return { distance: distAcc + Math.abs(currentS.mileage - currentE.mileage) };
+    }
 
-     // Fallback / Error Case
-     console.error("Unhandled distance calculation path:", startName, "->", endName);
-     return { error: "無法計算此路徑里程" };
+    // Fallback / Error Case
+    console.error("Unhandled distance calculation path:", startName, "->", endName);
+    return { error: "無法計算此路徑里程" };
 }
 
 
