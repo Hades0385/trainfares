@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台鐵票價試算 (含 2025/6/23 調漲後)</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <h1>台鐵票價試算 (含 2025/6/23 調漲後)</h1>
+    <p>
+        使用下方選單選擇起訖站及車種，計算預估票價。
+        <br>
+        新票價自 <strong>2025年6月23日</strong> 起實施，採「遞遠遞減」費率。
+        <br>
+        注意：本計算已納入基本里程數據與調漲費率，但山/海線特定路徑計算可能簡化，實際票價請以台鐵公告為準。
+    </p>
+
+    <div class="calculator">
+        <label for="startStation">起站：</label>
+        <select id="startStation"></select>
+
+        <label for="endStation">迄站：</label>
+        <select id="endStation"></select>
+
+        <label for="trainClass">車種：</label>
+        <select id="trainClass">
+            <option value="local">區間車 / 復興號</option>
+            <option value="juguang">莒光號</option>
+            <option value="ziqiang">自強號 (含普悠瑪、太魯閣)</option>
+        </select>
+
+        <button onclick="calculateAndDisplayFare()">計算預估票價</button>
+
+        <div id="result" style="display: none;">
+            <h2>試算結果：</h2>
+            <p>計算里程：<span id="calculatedDistance">--</span> 公里</p>
+            <p>原始票價 (預估)：<span id="originalFare">--</span> 元</p>
+            <p>調漲後票價 (預估)：<span id="newFare">--</span> 元</p>
+            <p class="disclaimer">＊票價依官方費率計算，含 10 公里起碼里程規則。</p>
+            <p class="disclaimer">＊實際票價請查詢 <a href="https://www.railway.gov.tw/tra-tip-web/tip/tip00C/tipC21/view?proCode=8ae4cac3756b7b4101757271e5f71703&subCode=8ae4cac395f2c8940195f59fc8e811c6&lang=zh_TW" target="_blank">台鐵官網</a>。</p>
+        </div>
+        <div id="error" style="color: red; margin-top: 15px; text-align: center; display: none;"></div>
+    </div>
+
+    <script src="stations.js"></script> <script src="script.js"></script>
+
+</body>
+</html>
