@@ -329,3 +329,5 @@ const SUAOXIN = "蘇澳新";
 const SANDIAOLING = "三貂嶺";
 const ERSHEI = "二水";
 const HSINCHU = "新竹";
+const SONGSHAN = "松山";
+const JIALU = "加祿";

@@ -202,37 +202,49 @@ function calculatePhysicalDistance(startName, endName, depth = 0) {
     if (isWestS !== isWestE || isEastS !== isEastE) {
         const taipei = getStation(TAIPEI);
         const fangliao = getStation(FANG_LIAO);
-
+        const jialu = getStation(JIALU);
+        const songshan = getStation(SONGSHAN);
+    
         let pathViaTaipei = Infinity;
         let pathViaFangliao = Infinity;
+    
 
-        // Optimize for same-line calculations
+        // --- via taipei ---
+        let distS_toTaipei, distE_toSongshan;
+    
         if (currentS.line === taipei.line && typeof currentS.mileage === 'number' && typeof taipei.mileage === 'number') {
-            pathViaTaipei = Math.abs(currentS.mileage - taipei.mileage);
+            distS_toTaipei = Math.abs(currentS.mileage - taipei.mileage);
         } else {
-            pathViaTaipei = calculatePhysicalDistance(currentS.name, TAIPEI, depth + 1).distance ?? Infinity;
+            distS_toTaipei = calculatePhysicalDistance(currentS.name, TAIPEI, depth + 1).distance ?? Infinity;
         }
-        if (currentE.line === taipei.line && typeof currentE.mileage === 'number' && typeof taipei.mileage === 'number') {
-            pathViaTaipei += Math.abs(currentE.mileage - taipei.mileage);
+    
+        if (currentE.line === songshan.line && typeof currentE.mileage === 'number' && typeof songshan.mileage === 'number') {
+            distE_toSongshan = Math.abs(currentE.mileage - songshan.mileage);
         } else {
-            pathViaTaipei += calculatePhysicalDistance(TAIPEI, currentE.name, depth + 1).distance ?? Infinity;
+            distE_toSongshan = calculatePhysicalDistance("松山", currentE.name, depth + 1).distance ?? Infinity;
         }
+        pathViaTaipei = distS_toTaipei + 6.4 + distE_toSongshan;
 
+        // --- via fangliao ---
+        let distS_toFangliao, distE_toJialu;
+    
         if (currentS.line === fangliao.line && typeof currentS.mileage === 'number' && typeof fangliao.mileage === 'number') {
-            pathViaFangliao = Math.abs(currentS.mileage - fangliao.mileage);
+            distS_toFangliao = Math.abs(currentS.mileage - fangliao.mileage);
         } else {
-            pathViaFangliao = calculatePhysicalDistance(currentS.name, FANG_LIAO, depth + 1).distance ?? Infinity;
+            distS_toFangliao = calculatePhysicalDistance(currentS.name, FANG_LIAO, depth + 1).distance ?? Infinity;
         }
-        if (currentE.line === fangliao.line && typeof currentE.mileage === 'number' && typeof fangliao.mileage === 'number') {
-            pathViaFangliao += Math.abs(currentE.mileage - fangliao.mileage);
+    
+        if (currentE.line === jialu.line && typeof currentE.mileage === 'number' && typeof jialu.mileage === 'number') {
+            distE_toJialu = Math.abs(currentE.mileage - jialu.mileage);
         } else {
-            pathViaFangliao += calculatePhysicalDistance(FANG_LIAO, currentE.name, depth + 1).distance ?? Infinity;
+            distE_toJialu = calculatePhysicalDistance("加祿", currentE.name, depth + 1).distance ?? Infinity;
         }
-
+        pathViaFangliao = distS_toFangliao + 5.3 + distE_toJialu;
+    
         if (pathViaTaipei === Infinity && pathViaFangliao === Infinity) {
             return { error: `無法計算東西幹線路徑 (${currentS.name} <-> ${currentE.name})` };
         }
-
+    
         const result = { distance: distAcc + Math.min(pathViaTaipei, pathViaFangliao) };
         distanceCache.set(cacheKey, result);
         return result;
